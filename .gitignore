@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+# Ignore local Firebase applet config if syncing to public git repositories
+firebase-applet-config.json
+
