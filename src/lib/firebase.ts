@@ -23,14 +23,24 @@ import {
 import type { JournalEntry, UserProfile } from '../types';
 import appConfig from '../../firebase-applet-config.json';
 
-// Initialize Firebase App instance safely
+/**
+ * Firebase Client Web Configuration
+ * 
+ * Note on GitHub Secret Scanning & Firebase Web API Keys:
+ * In Firebase Web applications, the apiKey (AIzaSy...) is an IDENTIFIER used by the browser
+ * to route requests to your Firebase project, NOT an administrative secret.
+ * Google's official security architecture enforces data security strictly via Firestore Security Rules
+ * (firestore.rules), which require authenticated user ownership (request.auth.uid == userId) for all operations.
+ * 
+ * Supports optional environment variable overrides for custom CI/CD pipelines.
+ */
 const firebaseConfig = {
-  apiKey: appConfig.apiKey,
-  authDomain: appConfig.authDomain,
-  projectId: appConfig.projectId,
-  storageBucket: appConfig.storageBucket,
-  messagingSenderId: appConfig.messagingSenderId,
-  appId: appConfig.appId,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || appConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || appConfig.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || appConfig.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || appConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || appConfig.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || appConfig.appId,
 };
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -39,10 +49,12 @@ export const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-// Initialize Firestore with specific database ID if defined in applet config
-const databaseId = appConfig.firestoreDatabaseId && appConfig.firestoreDatabaseId !== '(default)'
-  ? appConfig.firestoreDatabaseId
-  : undefined;
+// Initialize Firestore with specific database ID if defined in applet config or env
+const databaseId = 
+  import.meta.env.VITE_FIRESTORE_DATABASE_ID ||
+  (appConfig.firestoreDatabaseId && appConfig.firestoreDatabaseId !== '(default)'
+    ? appConfig.firestoreDatabaseId
+    : undefined);
 
 /**
  * Configure Firestore with experimentalForceLongPolling to eliminate

@@ -164,3 +164,29 @@ The application is packaged with comprehensive search-engine optimization, metad
 - **PWA & Mobile Ready**: `/site.webmanifest` and scalable SVG favicons (`/favicon.svg`) with theme color `#0c0a09` for immersive mobile and desktop experiences.
 - **HTTP Security Headers**: Express server provides `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, and `Referrer-Policy: strict-origin-when-cross-origin`.
 
+---
+
+## 9. GitHub Secret Scanning & Firebase API Key Security
+
+If you export this repository to GitHub, you may receive an automated alert from GitHub Secret Scanning regarding a **Google API Key** found in `firebase-applet-config.json`.
+
+### Why this happens and why your data is secure:
+1. **Firebase Web API Keys are Public by Design**:
+   - In Firebase Web client SDKs, the `apiKey` (`AIzaSy...`) is a **public identifier** that identifies your Firebase project to Google services in client browsers. It is NOT a secret administrative credential.
+   - [Official Google Firebase Documentation](https://firebase.google.com/docs/projects/api-keys): *"Unlike API keys for other services, Firebase API keys for web apps are not secrets and do not need to be hidden."*
+2. **True Security is Enforced by Firestore Security Rules (`firestore.rules`)**:
+   - Having the Firebase API key and Project ID does **NOT** give anyone access to your database.
+   - Every single read, write, and query is governed by `firestore.rules`:
+     ```javascript
+     match /users/{userId}/{document=**} {
+       allow read, write: if request.auth != null && request.auth.uid == userId;
+     }
+     ```
+   - Unauthenticated or unauthorized requests are rejected immediately by Google Cloud Firestore.
+3. **Secret API Keys are strictly kept server-side**:
+   - Sensitive keys like `GEMINI_API_KEY` are stored in Google Cloud Secret Manager / server environment variables and are **never** committed to git or exposed to the client browser.
+4. **How to resolve the GitHub alert**:
+   - On GitHub, navigate to **Security** → **Secret scanning alerts** and close the alert by selecting **"False positive"** or **"Used in tests/public client app"**.
+   - Optional: In [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials), you can restrict your Firebase Web API key to only accept HTTP referrers from your domains (`https://reflections-journals.ai.studio` and your Cloud Run domain).
+
+
