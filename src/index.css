@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+/* 
+ * Reflections Journal Custom Scrollbar Theme
+ * Matches the deep stone-950/900 palette with warm stone & amber accents
+ */
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  background-color: #0c0a09; /* stone-950 */
+  color: #f5f5f4; /* stone-100 */
+}
+
+/* Global scrollbar for modern browsers (Firefox, modern Chromium) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #44403c #1c1917; /* thumb: stone-700, track: stone-900 */
+}
+
+/* Webkit & Chromium browsers (Chrome, Edge, Safari, Opera) */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #141210; /* deep stone track */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #44403c; /* warm stone-700 */
+  border-radius: 9999px;
+  border: 1px solid #141210;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d97706; /* warm amber-600 on hover */
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #f59e0b; /* amber-500 when dragging */
+}
+
+::-webkit-scrollbar-corner {
+  background: #141210;
+}
+
+@layer utilities {
+  /* Subtle inset scrollbar for tight containers */
+  .subtle-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #383431 transparent;
+  }
+  .subtle-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .subtle-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .subtle-scrollbar::-webkit-scrollbar-thumb {
+    background: #44403c;
+    border-radius: 9999px;
+  }
+  .subtle-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #d97706;
+  }
+
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+}
+

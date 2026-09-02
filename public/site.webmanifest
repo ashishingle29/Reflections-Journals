@@ -1,0 +1,17 @@
+{
+  "name": "Reflections Journal",
+  "short_name": "Reflections",
+  "description": "User-authenticated, private reflective journaling application powered by Gemini AI and Cloud Firestore.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0a09",
+  "theme_color": "#0c0a09",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="16" fill="#1c1917"/>
+  <rect x="1" y="1" width="62" height="62" rx="15" stroke="#f59e0b" stroke-width="1.5" stroke-opacity="0.3"/>
+  <path d="M32 14C23.1634 14 16 21.1634 16 30C16 38.8366 23.1634 46 32 46C40.8366 46 48 38.8366 48 30C48 21.1634 40.8366 14 32 14Z" fill="#f59e0b" fill-opacity="0.1"/>
+  <!-- Sparkle Core -->
+  <path d="M32 18L34.5 27.5L44 30L34.5 32.5L32 42L29.5 32.5L20 30L29.5 27.5L32 18Z" fill="#fbbf24"/>
+  <!-- Subsidiary stars -->
+  <path d="M43 19L44.2 23L48 24L44.2 25L43 29L41.8 25L38 24L41.8 23L43 19Z" fill="#fef3c7"/>
+  <path d="M21 37L21.8 39.5L24 40L21.8 40.5L21 43L20.2 40.5L18 40L20.2 39.5L21 37Z" fill="#f59e0b"/>
+</svg>
