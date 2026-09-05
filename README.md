@@ -1,8 +1,8 @@
 # Reflections Journal
 
 **Live Application URLs**:
-- **Shared Preview App**: [https://ais-pre-lpatow4lohybqqtitfy5ow-292196678817.asia-east1.run.app](https://ais-pre-lpatow4lohybqqtitfy5ow-292196678817.asia-east1.run.app)
-- **Development App**: [https://ais-dev-lpatow4lohybqqtitfy5ow-292196678817.asia-east1.run.app](https://ais-dev-lpatow4lohybqqtitfy5ow-292196678817.asia-east1.run.app)
+- **Shared Preview App**: [https://reflections-journals.ai.studio/](https://reflections-journals.ai.studio)
+- **Development App**: [https://reflections-journals.ai.studio/](https://reflections-journals.ai.studio)
 
 A user-authenticated, private reflective journaling application powered by **Google Gemini 3.6 Flash** and **Google Cloud Firestore**. Every journal entry, conversational reflection turn, emotional insight, and AI summary is strictly isolated to the authenticated user using Firebase Authentication and kernel-enforced Firestore Security Rules.
 
@@ -27,7 +27,7 @@ Follow these steps to run the project on your local machine:
 
 ### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/reflections-journal.git
+git clone https://github.com/ashishingle29/reflections-journal.git
 cd reflections-journal
 ```
 
