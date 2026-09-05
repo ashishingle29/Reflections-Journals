@@ -18,7 +18,6 @@ import type { EntryCategory } from '../types';
 
 interface LandingViewProps {
   onSignIn: () => void;
-  onExploreDemo?: () => void;
   isLoading?: boolean;
   errorMessage?: string | null;
   onClearError?: () => void;
@@ -26,7 +25,6 @@ interface LandingViewProps {
 
 export const LandingView: React.FC<LandingViewProps> = ({
   onSignIn,
-  onExploreDemo,
   isLoading,
   errorMessage,
   onClearError,
@@ -127,17 +125,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               <span>Google Federated Auth • Private Firestore Database • Zero Passwords Stored</span>
             </p>
-
-            {onExploreDemo && (
-              <button
-                id="btn-guest-explore"
-                onClick={onExploreDemo}
-                className="mt-1 inline-flex items-center gap-2 px-4 py-2 bg-stone-900/90 hover:bg-stone-800 text-stone-300 hover:text-stone-100 border border-stone-800 hover:border-stone-700 text-xs rounded-xl transition cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>Explore Interactive Demo Sanctuary (Guest Preview)</span>
-              </button>
-            )}
           </div>
         </div>
 

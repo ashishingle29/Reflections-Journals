@@ -152,85 +152,6 @@ export default function App() {
     }
   };
 
-  const handleExploreDemo = () => {
-    const guestUser: UserProfile = {
-      uid: 'demo-guest-user',
-      displayName: 'Guest Contemplator',
-      email: 'guest@reflections.local',
-      photoURL: null,
-      role: 'user',
-    };
-    setUser(guestUser);
-    const demoEntries: JournalEntry[] = [
-      {
-        id: 'entry-demo-kyoto',
-        userId: guestUser.uid,
-        title: 'Morning Serenity at Arashiyama',
-        category: 'reflection',
-        createdAt: Date.now() - 3600000,
-        updatedAt: Date.now() - 1800000,
-        isUserCustomTitle: true,
-        location: {
-          placeName: 'Kyoto Arashiyama Bamboo Grove',
-          city: 'Kyoto',
-          country: 'Japan',
-          lat: 35.0169,
-          lng: 135.6713,
-          formattedAddress: 'Kyoto, Japan',
-        },
-        turns: [
-          {
-            id: 'turn-1',
-            role: 'user',
-            content: 'Walking early among the towering bamboo stalks before the crowds arrived gave me space to reconnect with what truly matters.',
-            timestamp: Date.now() - 3500000,
-          },
-          {
-            id: 'turn-2',
-            role: 'assistant',
-            content: 'There is a rare stillness in creating mental space before the world rushes in. Notice how the rhythmic rustling of the bamboo mirrors the natural rhythm of intentional focus.',
-            timestamp: Date.now() - 3400000,
-          },
-        ],
-        summary: 'A quiet morning walk through Kyoto’s bamboo groves brought immediate mental spaciousness and renewed clarity on personal values.',
-      },
-      {
-        id: 'entry-demo-santorini',
-        userId: guestUser.uid,
-        title: 'Caldera Sunset Contemplation',
-        category: 'gratitude',
-        createdAt: Date.now() - 7200000,
-        updatedAt: Date.now() - 3600000,
-        isUserCustomTitle: true,
-        location: {
-          placeName: 'Santorini Caldera Overlook',
-          city: 'Oia',
-          country: 'Greece',
-          lat: 36.4618,
-          lng: 25.3753,
-          formattedAddress: 'Oia, Greece',
-        },
-        turns: [
-          {
-            id: 'turn-1',
-            role: 'user',
-            content: 'Watching the Aegean horizon change from gold to violet reminded me how fast seasons change and how grateful I am for simple presence.',
-            timestamp: Date.now() - 7000000,
-          },
-          {
-            id: 'turn-2',
-            role: 'assistant',
-            content: 'Sunsets remind us that beauty is not held in keeping things static, but in observing transitions with grateful attention.',
-            timestamp: Date.now() - 6900000,
-          },
-        ],
-        summary: 'Observing the sunset evoked deep gratitude for impermanence and mindful presence.',
-      },
-    ];
-    setEntries(demoEntries);
-    setSelectedEntryId(demoEntries[0].id);
-  };
-
   const handleAddSampleEntry = () => {
     if (!user) return;
     const sampleEntry: JournalEntry = {
@@ -484,7 +405,6 @@ export default function App() {
       {!user ? (
         <LandingView
           onSignIn={handleSignIn}
-          onExploreDemo={handleExploreDemo}
           isLoading={isAuthLoading}
           errorMessage={authError}
           onClearError={() => setAuthError(null)}
