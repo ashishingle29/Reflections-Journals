@@ -16,13 +16,18 @@ import {
   Pencil,
   Square,
   X,
-  HelpCircle
+  HelpCircle,
+  MapPin,
+  Volume2,
+  VolumeX,
+  Loader2
 } from 'lucide-react';
-import type { JournalEntry, JournalTurn, EntryCategory, UserProfile } from '../types';
+import type { JournalEntry, JournalTurn, EntryCategory, UserProfile, JournalLocation } from '../types';
 import { requestGeminiReflection } from '../lib/geminiApi';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { CategoryDropdown, CATEGORY_DEFINITIONS } from './CategoryDropdown';
 import { CATEGORY_SHOWCASE_DATA } from '../data/categoryPrompts';
+import { LocationPickerModal } from './LocationPickerModal';
 
 // Intelligently derive a clean, capitalized title from the first chat input
 function generateTitleFromPrompt(prompt: string, category?: string): string {
@@ -95,10 +100,21 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
   const [cancelNotice, setCancelNotice] = useState<string | null>(null);
   const [userImgError, setUserImgError] = useState(false);
   const [copiedTurnId, setCopiedTurnId] = useState<string | null>(null);
+  const [speakingTurnId, setSpeakingTurnId] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleSaveLocation = async (location: JournalLocation | null) => {
+    const updated: JournalEntry = {
+      ...entry,
+      location: location || undefined,
+      updatedAt: Date.now(),
+    };
+    await onUpdateEntry(updated);
+  };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -121,7 +137,7 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
     }
   }, [inputText]);
 
-  // Cleanup any ongoing generation on unmount
+  // Cleanup any ongoing generation or audio speech on unmount
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
@@ -129,6 +145,9 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
       }
       if (summaryAbortRef.current) {
         summaryAbortRef.current.abort();
+      }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
       }
     };
   }, []);
@@ -356,6 +375,61 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
     }
   };
 
+  const handleToggleSpeechTurn = (turnId: string, text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      setAiError('Speech synthesis is not supported in this browser environment.');
+      return;
+    }
+
+    // If currently speaking this turn, stop playback
+    if (speakingTurnId === turnId) {
+      window.speechSynthesis.cancel();
+      setSpeakingTurnId(null);
+      return;
+    }
+
+    // Stop any existing speech before starting new one
+    window.speechSynthesis.cancel();
+
+    // Strip markdown formatting symbols for clean natural speech
+    const cleanText = text
+      .replace(/[*_#`~>\[\]()]/g, '')
+      .replace(/https?:\/\/\S+/g, '')
+      .replace(/\n+/g, '. ')
+      .trim();
+
+    if (!cleanText) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 0.95; // Gentle, contemplative pacing
+    utterance.pitch = 1.0;
+
+    // Pick a pleasant natural voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const naturalVoice = voices.find(
+      (v) => (v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel')))
+    ) || voices.find((v) => v.lang.startsWith('en'));
+
+    if (naturalVoice) {
+      utterance.voice = naturalVoice;
+    }
+
+    utterance.onstart = () => {
+      setSpeakingTurnId(turnId);
+    };
+
+    utterance.onend = () => {
+      setSpeakingTurnId(null);
+    };
+
+    utterance.onerror = (e) => {
+      console.warn('Speech synthesis error or cancel:', e);
+      setSpeakingTurnId(null);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Escape' && isAiGenerating) {
       e.preventDefault();
@@ -410,8 +484,24 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
           />
         </div>
 
-        {/* Right: Actions (Summary, Delete, Sync) */}
+        {/* Right: Actions (Location, Summary, Delete, Sync) */}
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          <button
+            id="btn-entry-location"
+            onClick={() => setShowLocationModal(true)}
+            className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs font-medium rounded-lg transition min-h-[30px] cursor-pointer max-w-[130px] sm:max-w-[170px] truncate ${
+              entry.location
+                ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40'
+                : 'bg-stone-800 hover:bg-stone-700 text-stone-300'
+            }`}
+            title={entry.location ? `Pinned to: ${entry.location.placeName}. Click to edit.` : 'Tag reflection with a location'}
+          >
+            <MapPin className={`w-3.5 h-3.5 shrink-0 ${entry.location ? 'text-amber-400' : 'text-stone-400'}`} />
+            <span className="truncate">
+              {entry.location ? entry.location.placeName : 'Pin Location'}
+            </span>
+          </button>
+
           {entry.summary ? (
             <button
               id="btn-view-summary"
@@ -651,6 +741,30 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
                             minute: '2-digit',
                           })}
                         </span>
+                        {!isUser && (
+                          <button
+                            onClick={() => handleToggleSpeechTurn(turn.id, turn.content)}
+                            className={`px-2 py-0.5 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1 ${
+                              speakingTurnId === turn.id
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
+                                : 'text-stone-400 hover:text-amber-300 hover:bg-stone-800'
+                            }`}
+                            title={speakingTurnId === turn.id ? 'Stop listening' : 'Listen to AI reflection'}
+                            aria-label={speakingTurnId === turn.id ? 'Stop audio playback' : 'Listen to AI reflection'}
+                          >
+                            {speakingTurnId === turn.id ? (
+                              <>
+                                <VolumeX className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Stop</span>
+                              </>
+                            ) : (
+                              <>
+                                <Volume2 className="w-3.5 h-3.5" />
+                                <span>Listen</span>
+                              </>
+                            )}
+                          </button>
+                        )}
                         <button
                           onClick={() => handleCopyText(turn.id, turn.content)}
                           className="p-1 min-h-[26px] min-w-[26px] flex items-center justify-center text-stone-400 hover:text-stone-300 transition cursor-pointer"
@@ -904,6 +1018,14 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
         onConfirm={handleConfirmDelete}
         onCancel={() => setShowDeleteModal(false)}
         isDeleting={isDeleting}
+      />
+
+      {/* Location Geotagging Modal */}
+      <LocationPickerModal
+        isOpen={showLocationModal}
+        currentLocation={entry.location}
+        onClose={() => setShowLocationModal(false)}
+        onSaveLocation={handleSaveLocation}
       />
     </div>
   );

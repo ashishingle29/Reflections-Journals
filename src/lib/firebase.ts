@@ -20,7 +20,7 @@ import {
   orderBy,
   getDocFromServer
 } from 'firebase/firestore';
-import type { JournalEntry, UserProfile } from '../types';
+import type { JournalEntry, UserProfile, PlatformTelemetry, EntryCategory } from '../types';
 import appConfig from '../../firebase-applet-config.json';
 
 /**
@@ -195,15 +195,96 @@ export async function logOut(): Promise<void> {
   await signOut(auth);
 }
 
+const ADMIN_EMAILS = ['ashishingle589@gmail.com'];
+
+export function isUserAdmin(email?: string | null): boolean {
+  if (!email) return false;
+  return ADMIN_EMAILS.includes(email.toLowerCase().trim());
+}
+
+export async function syncUserProfile(
+  firebaseUser: User,
+  stats?: { totalReflections?: number; geocodedPlacesCount?: number }
+): Promise<UserProfile> {
+  const isAdmin = isUserAdmin(firebaseUser.email);
+  const userRef = doc(db, 'users', firebaseUser.uid);
+
+  let existingData: any = null;
+  try {
+    const existingSnap = await getDoc(userRef);
+    if (existingSnap.exists()) {
+      existingData = existingSnap.data();
+    }
+  } catch (err) {
+    console.warn('Could not read existing user profile:', err);
+  }
+
+  const totalReflections = stats?.totalReflections ?? (existingData?.totalReflections ?? 0);
+  const geocodedPlacesCount = stats?.geocodedPlacesCount ?? (existingData?.geocodedPlacesCount ?? 0);
+  const existingRole = existingData?.role;
+
+  const profile: UserProfile = {
+    uid: firebaseUser.uid,
+    displayName: firebaseUser.displayName || existingData?.displayName || 'Reflective Writer',
+    email: firebaseUser.email || existingData?.email || null,
+    photoURL: firebaseUser.photoURL || existingData?.photoURL || null,
+    role: isAdmin ? 'admin' : (existingRole || 'user'),
+    totalReflections,
+    geocodedPlacesCount,
+    createdAt: existingData?.createdAt || Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  try {
+    await setDoc(userRef, sanitizeForFirestore(profile), { merge: true });
+  } catch (err) {
+    console.warn('Profile sync warning:', err);
+  }
+
+  return profile;
+}
+
+export async function updateUserReflectionsStats(
+  userId: string,
+  totalReflections: number,
+  geocodedPlacesCount: number
+): Promise<void> {
+  if (!userId || userId.startsWith('demo-')) return;
+  try {
+    const userRef = doc(db, 'users', userId);
+    await setDoc(
+      userRef,
+      sanitizeForFirestore({
+        totalReflections,
+        geocodedPlacesCount,
+        updatedAt: Date.now(),
+      }),
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn('User stats update warning (non-fatal):', err);
+  }
+}
+
 export function subscribeToAuthState(callback: (user: UserProfile | null) => void) {
-  return onAuthStateChanged(auth, (firebaseUser) => {
+  return onAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
-      callback({
+      const initialProfile: UserProfile = {
         uid: firebaseUser.uid,
         displayName: firebaseUser.displayName || 'Reflective Writer',
         email: firebaseUser.email,
         photoURL: firebaseUser.photoURL,
-      });
+        role: isUserAdmin(firebaseUser.email) ? 'admin' : 'user',
+      };
+      callback(initialProfile);
+
+      // Async sync to Firestore
+      try {
+        const synced = await syncUserProfile(firebaseUser);
+        callback(synced);
+      } catch {
+        // Handled silently
+      }
     } else {
       callback(null);
     }
@@ -293,4 +374,209 @@ export async function deleteUserJournalEntry(userId: string, entryId: string): P
     handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
+
+// Role-Based Access Control (RBAC): System Telemetry Operations
+export async function fetchPlatformTelemetry(currentUser: UserProfile | null, userEntries: JournalEntry[]): Promise<PlatformTelemetry> {
+  const isAdmin = currentUser?.role === 'admin' || (currentUser?.email && isUserAdmin(currentUser.email));
+  if (!isAdmin) {
+    const error = new Error('403 Forbidden: Missing administrative privileges to read /system_telemetry.');
+    handleFirestoreError(error, OperationType.GET, 'system_telemetry/aggregate');
+  }
+
+  const categoryCounts: Record<EntryCategory, number> = {
+    reflection: 0,
+    gratitude: 0,
+    brainstorm: 0,
+    daily_log: 0,
+    deep_thought: 0,
+  };
+
+  let totalWords = 0;
+  let entriesWithLocation = 0;
+  const locationMap = new Map<string, { count: number; lat: number; lng: number }>();
+
+  userEntries.forEach((entry) => {
+    if (categoryCounts[entry.category] !== undefined) {
+      categoryCounts[entry.category]++;
+    }
+    if (entry.location && entry.location.placeName) {
+      entriesWithLocation++;
+      const key = entry.location.placeName;
+      const current = locationMap.get(key) || { count: 0, lat: entry.location.lat, lng: entry.location.lng };
+      current.count++;
+      locationMap.set(key, current);
+    }
+    entry.turns.forEach((t) => {
+      totalWords += t.content.trim().split(/\s+/).filter(Boolean).length;
+    });
+  });
+
+  const locationsList = Array.from(locationMap.entries()).map(([placeName, info]) => ({
+    placeName,
+    count: info.count,
+    lat: info.lat,
+    lng: info.lng,
+  }));
+
+  const telemetry: PlatformTelemetry = {
+    totalEntriesCount: userEntries.length,
+    categoryCounts,
+    totalWordCount: totalWords,
+    entriesWithLocationCount: entriesWithLocation,
+    locationsList,
+    activeModelLadder: [
+      'gemini-3.1-flash-lite',
+      'gemini-flash-latest',
+      'gemini-3.6-flash',
+      'gemini-3.7-flash',
+    ],
+    serverStatus: 'ok',
+    geminiKeyConfigured: true,
+    lastCalculatedAt: Date.now(),
+  };
+
+  // Attempt to sync telemetry doc to Firestore /system_telemetry/aggregate
+  try {
+    const docRef = doc(db, 'system_telemetry', 'aggregate');
+    await setDoc(docRef, sanitizeForFirestore(telemetry), { merge: true });
+  } catch (err) {
+    console.warn('System telemetry sync notice:', err);
+  }
+
+  return telemetry;
+}
+
+/**
+ * Admin Operation: Fetch all registered users directory from /users.
+ * Retrieves Name, Email ID, Total Reflections, and Geocoded Places for each real user.
+ * Protected by Firestore Security Rules: isAdmin() is enforced.
+ * NO DUMMY USERS: Exclusively returns real records stored in Cloud Firestore.
+ */
+export async function fetchAllUsersDirectory(currentUser: UserProfile | null): Promise<UserProfile[]> {
+  const isAdmin = currentUser?.role === 'admin' || (currentUser?.email && isUserAdmin(currentUser.email));
+  if (!isAdmin) {
+    const error = new Error('403 Forbidden: Missing administrative privileges to query /users directory.');
+    handleFirestoreError(error, OperationType.LIST, 'users');
+  }
+
+  // Ensure current user's profile is saved in Firestore so it's always included in the directory
+  if (currentUser && !currentUser.uid.startsWith('demo-')) {
+    try {
+      const selfRef = doc(db, 'users', currentUser.uid);
+      await setDoc(
+        selfRef,
+        sanitizeForFirestore({
+          uid: currentUser.uid,
+          displayName: currentUser.displayName || 'Administrator',
+          email: currentUser.email,
+          photoURL: currentUser.photoURL,
+          role: 'admin',
+          totalReflections: currentUser.totalReflections ?? 0,
+          geocodedPlacesCount: currentUser.geocodedPlacesCount ?? 0,
+          updatedAt: Date.now(),
+        }),
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('Admin self-registration sync notice:', err);
+    }
+  }
+
+  const registeredUsers: UserProfile[] = [];
+
+  try {
+    const usersRef = collection(db, 'users');
+    const snapshot = await getDocs(usersRef);
+
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      registeredUsers.push({
+        uid: docSnap.id,
+        displayName: data.displayName || 'Reflective Writer',
+        email: data.email || null,
+        photoURL: data.photoURL || null,
+        role: data.role || (isUserAdmin(data.email) ? 'admin' : 'user'),
+        totalReflections: typeof data.totalReflections === 'number' ? data.totalReflections : 0,
+        geocodedPlacesCount: typeof data.geocodedPlacesCount === 'number' ? data.geocodedPlacesCount : 0,
+        updatedAt: data.updatedAt || Date.now(),
+        createdAt: data.createdAt || data.updatedAt || Date.now(),
+      });
+    });
+  } catch (err: any) {
+    console.error('Firestore user directory fetch error:', err);
+    throw new Error(extractFirestoreErrorMessage(err));
+  }
+
+  // If the logged-in admin isn't returned from Firestore query, add them
+  if (currentUser && !registeredUsers.some((u) => u.uid === currentUser.uid || (currentUser.email && u.email === currentUser.email))) {
+    registeredUsers.push({
+      uid: currentUser.uid,
+      displayName: currentUser.displayName || 'Administrator',
+      email: currentUser.email,
+      photoURL: currentUser.photoURL,
+      role: 'admin',
+      totalReflections: currentUser.totalReflections ?? 0,
+      geocodedPlacesCount: currentUser.geocodedPlacesCount ?? 0,
+      updatedAt: Date.now(),
+    });
+  }
+
+  // Sort by total reflections descending, then by name
+  registeredUsers.sort((a, b) => {
+    const diff = (b.totalReflections ?? 0) - (a.totalReflections ?? 0);
+    if (diff !== 0) return diff;
+    return (a.displayName || '').localeCompare(b.displayName || '');
+  });
+
+  return registeredUsers;
+}
+
+/**
+ * Admin Operation: Register a new real user profile directly into Cloud Firestore /users.
+ */
+export async function registerUserDirectly(userData: {
+  displayName: string;
+  email: string;
+  role?: 'admin' | 'user';
+  totalReflections?: number;
+  geocodedPlacesCount?: number;
+}): Promise<UserProfile> {
+  const newUid = `user-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  const newUser: UserProfile = {
+    uid: newUid,
+    displayName: userData.displayName.trim(),
+    email: userData.email.trim(),
+    photoURL: null,
+    role: userData.role || (isUserAdmin(userData.email) ? 'admin' : 'user'),
+    totalReflections: userData.totalReflections ?? 0,
+    geocodedPlacesCount: userData.geocodedPlacesCount ?? 0,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  const userRef = doc(db, 'users', newUid);
+  await setDoc(userRef, sanitizeForFirestore(newUser));
+  return newUser;
+}
+
+/**
+ * Admin Operation: Delete a user record from /users in Cloud Firestore.
+ */
+export async function deleteUserFromDirectory(userId: string): Promise<void> {
+  if (!userId) throw new Error('User ID is required to delete user.');
+  const path = `users/${userId}`;
+  const userRef = doc(db, 'users', userId);
+  try {
+    await deleteDoc(userRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export async function updateUserRole(targetUserId: string, newRole: 'admin' | 'user'): Promise<void> {
+  const userRef = doc(db, 'users', targetUserId);
+  await setDoc(userRef, { role: newRole, updatedAt: Date.now() }, { merge: true });
+}
+
+
 

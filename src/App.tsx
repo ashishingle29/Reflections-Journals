@@ -3,7 +3,9 @@ import { Navbar } from './components/Navbar';
 import { LandingView } from './components/LandingView';
 import { EntryHistorySidebar } from './components/EntryHistorySidebar';
 import { EntryEditor } from './components/EntryEditor';
-import type { UserProfile, JournalEntry } from './types';
+import { JourneyMapView } from './components/JourneyMapView';
+import { AdminDashboard } from './components/AdminDashboard';
+import type { UserProfile, JournalEntry, JournalLocation, EntryCategory } from './types';
 import { 
   signInWithGoogle, 
   logOut, 
@@ -11,6 +13,7 @@ import {
   fetchUserJournalEntries,
   saveUserJournalEntry,
   deleteUserJournalEntry,
+  updateUserReflectionsStats,
   extractFirestoreErrorMessage
 } from './lib/firebase';
 
@@ -22,6 +25,7 @@ export default function App() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [isLoadingEntries, setIsLoadingEntries] = useState(false);
+  const [activeView, setActiveView] = useState<'journal' | 'map' | 'admin'>('journal');
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -89,6 +93,16 @@ export default function App() {
     }
   }, [user?.uid, loadEntries]);
 
+  // Synchronize reflection volume and geocoded places count to Firestore user profile
+  useEffect(() => {
+    if (user?.uid && !user.uid.startsWith('demo-')) {
+      const persistedEntries = entries.filter((e) => e.turns.length > 0 || e.location);
+      const totalReflections = persistedEntries.length;
+      const geocodedPlacesCount = persistedEntries.filter((e) => e.location?.placeName).length;
+      updateUserReflectionsStats(user.uid, totalReflections, geocodedPlacesCount);
+    }
+  }, [entries, user?.uid]);
+
   // Auth actions
   const handleSignIn = async () => {
     setAuthError(null);
@@ -138,6 +152,124 @@ export default function App() {
     }
   };
 
+  const handleExploreDemo = () => {
+    const guestUser: UserProfile = {
+      uid: 'demo-guest-user',
+      displayName: 'Guest Contemplator',
+      email: 'guest@reflections.local',
+      photoURL: null,
+      role: 'user',
+    };
+    setUser(guestUser);
+    const demoEntries: JournalEntry[] = [
+      {
+        id: 'entry-demo-kyoto',
+        userId: guestUser.uid,
+        title: 'Morning Serenity at Arashiyama',
+        category: 'reflection',
+        createdAt: Date.now() - 3600000,
+        updatedAt: Date.now() - 1800000,
+        isUserCustomTitle: true,
+        location: {
+          placeName: 'Kyoto Arashiyama Bamboo Grove',
+          city: 'Kyoto',
+          country: 'Japan',
+          lat: 35.0169,
+          lng: 135.6713,
+          formattedAddress: 'Kyoto, Japan',
+        },
+        turns: [
+          {
+            id: 'turn-1',
+            role: 'user',
+            content: 'Walking early among the towering bamboo stalks before the crowds arrived gave me space to reconnect with what truly matters.',
+            timestamp: Date.now() - 3500000,
+          },
+          {
+            id: 'turn-2',
+            role: 'assistant',
+            content: 'There is a rare stillness in creating mental space before the world rushes in. Notice how the rhythmic rustling of the bamboo mirrors the natural rhythm of intentional focus.',
+            timestamp: Date.now() - 3400000,
+          },
+        ],
+        summary: 'A quiet morning walk through Kyoto’s bamboo groves brought immediate mental spaciousness and renewed clarity on personal values.',
+      },
+      {
+        id: 'entry-demo-santorini',
+        userId: guestUser.uid,
+        title: 'Caldera Sunset Contemplation',
+        category: 'gratitude',
+        createdAt: Date.now() - 7200000,
+        updatedAt: Date.now() - 3600000,
+        isUserCustomTitle: true,
+        location: {
+          placeName: 'Santorini Caldera Overlook',
+          city: 'Oia',
+          country: 'Greece',
+          lat: 36.4618,
+          lng: 25.3753,
+          formattedAddress: 'Oia, Greece',
+        },
+        turns: [
+          {
+            id: 'turn-1',
+            role: 'user',
+            content: 'Watching the Aegean horizon change from gold to violet reminded me how fast seasons change and how grateful I am for simple presence.',
+            timestamp: Date.now() - 7000000,
+          },
+          {
+            id: 'turn-2',
+            role: 'assistant',
+            content: 'Sunsets remind us that beauty is not held in keeping things static, but in observing transitions with grateful attention.',
+            timestamp: Date.now() - 6900000,
+          },
+        ],
+        summary: 'Observing the sunset evoked deep gratitude for impermanence and mindful presence.',
+      },
+    ];
+    setEntries(demoEntries);
+    setSelectedEntryId(demoEntries[0].id);
+  };
+
+  const handleAddSampleEntry = () => {
+    if (!user) return;
+    const sampleEntry: JournalEntry = {
+      id: `entry-${Date.now()}-kyoto`,
+      userId: user.uid,
+      title: 'Morning Serenity at Arashiyama',
+      category: 'reflection',
+      createdAt: Date.now() - 3600000,
+      updatedAt: Date.now(),
+      isUserCustomTitle: true,
+      location: {
+        placeName: 'Kyoto Arashiyama Bamboo Grove',
+        city: 'Kyoto',
+        country: 'Japan',
+        lat: 35.0169,
+        lng: 135.6713,
+        formattedAddress: 'Kyoto, Japan',
+      },
+      turns: [
+        {
+          id: 'turn-1',
+          role: 'user',
+          content: 'Walking early among the towering bamboo stalks before the crowds arrived gave me space to reconnect with what truly matters.',
+          timestamp: Date.now() - 3500000,
+        },
+        {
+          id: 'turn-2',
+          role: 'assistant',
+          content: 'There is a profound stillness in creating physical and mental space before the world rushes in. Notice how the rhythmic rustling of the bamboo mirrors the natural rhythm of intentional focus.',
+          timestamp: Date.now() - 3400000,
+        },
+      ],
+      summary: 'A quiet morning walk through Kyoto’s bamboo groves brought immediate mental spaciousness and renewed clarity on personal values.',
+    };
+
+    setEntries((prev) => [sampleEntry, ...prev.filter((e) => e.id !== sampleEntry.id)]);
+    setSelectedEntryId(sampleEntry.id);
+  };
+
   // Create a new journal entry (Draft in local memory - NOT stored in DB until chat starts)
   const handleNewEntry = useCallback(() => {
     if (!user) return;
@@ -170,7 +302,59 @@ export default function App() {
     }
   }, [user]);
 
-  // Update entry in state and persist to Firestore (ONLY if chat has started)
+  // Create a new journal entry with a location pinned directly from the journey map
+  const handleCreateEntryWithLocation = useCallback(
+    async (
+      loc: JournalLocation,
+      title?: string,
+      category: EntryCategory = 'reflection'
+    ): Promise<JournalEntry> => {
+      if (!user) throw new Error('User not authenticated');
+
+      const cleanTitle = title?.trim() || loc.placeName || 'New Sanctuary Reflection';
+      const newEntry: JournalEntry = {
+        id: `entry-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        userId: user.uid,
+        title: cleanTitle,
+        category: category,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        isUserCustomTitle: !!title?.trim(),
+        location: loc,
+        turns: [],
+      };
+
+      setEntries((prev) => [newEntry, ...prev]);
+      setSelectedEntryId(newEntry.id);
+
+      if (user.uid.startsWith('demo-')) {
+        try {
+          const currentList = entries.filter((e) => e.id !== newEntry.id);
+          localStorage.setItem(`demo_entries_${user.uid}`, JSON.stringify([newEntry, ...currentList]));
+        } catch {}
+        return newEntry;
+      }
+
+      setIsSaving(true);
+      setSaveError(null);
+      setLastPendingEntry(newEntry);
+
+      try {
+        await saveUserJournalEntry(user.uid, newEntry);
+        setLastPendingEntry(null);
+      } catch (err: any) {
+        console.error('Failed to save newly pinned entry:', err);
+        setSaveError(extractFirestoreErrorMessage(err));
+      } finally {
+        setIsSaving(false);
+      }
+
+      return newEntry;
+    },
+    [user, entries]
+  );
+
+  // Update entry in state and persist to Firestore (if chat has started OR location is pinned)
   const handleUpdateEntry = async (updatedEntry: JournalEntry) => {
     if (!user) return;
 
@@ -179,13 +363,21 @@ export default function App() {
       prev.map((e) => (e.id === updatedEntry.id ? updatedEntry : e))
     );
 
-    // If the chat has NOT started yet (0 turns), keep only in local state and do NOT store in DB
-    if (updatedEntry.turns.length === 0) {
+    // Persist to demo storage if in demo mode
+    if (user.uid.startsWith('demo-')) {
+      try {
+        const updatedList = entries.map((e) => (e.id === updatedEntry.id ? updatedEntry : e));
+        localStorage.setItem(`demo_entries_${user.uid}`, JSON.stringify(updatedList));
+      } catch {}
+      return;
+    }
+
+    // If neither chat turns exist nor a location is tagged, keep in local memory only
+    if (updatedEntry.turns.length === 0 && !updatedEntry.location) {
       setSaveError(null);
       return;
     }
 
-    // Chat is started: persist to Cloud Firestore
     setIsSaving(true);
     setSaveError(null);
     setLastPendingEntry(updatedEntry);
@@ -222,8 +414,8 @@ export default function App() {
     if (!user) return;
     try {
       const entryToDelete = entries.find((e) => e.id === entryId);
-      // Only invoke Firestore delete if the entry was actually persisted (turns > 0)
-      if (entryToDelete && entryToDelete.turns.length > 0) {
+      // Only invoke Firestore delete if the entry was actually persisted (turns > 0 or has location)
+      if (entryToDelete && (entryToDelete.turns.length > 0 || entryToDelete.location)) {
         await deleteUserJournalEntry(user.uid, entryId);
       }
       const remaining = entries.filter((e) => e.id !== entryId);
@@ -243,6 +435,10 @@ export default function App() {
     const found = entries.find((e) => e.id === selectedEntryId);
     return found || entries[0];
   }, [entries, selectedEntryId]);
+
+  const locationCount = useMemo(() => {
+    return entries.filter((e) => e.location && typeof e.location.lat === 'number').length;
+  }, [entries]);
 
   // Keep selectedEntryId in sync with selectedEntry
   useEffect(() => {
@@ -280,14 +476,36 @@ export default function App() {
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         entryCount={entries.length}
+        locationCount={locationCount}
+        activeView={activeView}
+        onViewChange={setActiveView}
       />
 
       {!user ? (
         <LandingView
           onSignIn={handleSignIn}
+          onExploreDemo={handleExploreDemo}
           isLoading={isAuthLoading}
           errorMessage={authError}
           onClearError={() => setAuthError(null)}
+        />
+      ) : activeView === 'map' ? (
+        <JourneyMapView
+          entries={entries}
+          activeEntryId={selectedEntryId}
+          onSelectEntry={(id) => {
+            setSelectedEntryId(id);
+            setActiveView('journal');
+          }}
+          onUpdateEntry={handleUpdateEntry}
+          onCreateEntry={handleCreateEntryWithLocation}
+          onAddSampleEntry={handleAddSampleEntry}
+        />
+      ) : activeView === 'admin' ? (
+        <AdminDashboard
+          currentUser={user}
+          entries={entries}
+          onReturnToJournal={() => setActiveView('journal')}
         />
       ) : (
         <div className="flex-1 flex overflow-hidden relative">

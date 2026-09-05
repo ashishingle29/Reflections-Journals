@@ -80,3 +80,70 @@ html, body {
   }
 }
 
+/* 
+ * Google Maps InfoWindow & Control Styling Overrides
+ * Fixes black scrollbars, illegible dark text, clipping, and asymmetric top spacing
+ */
+.gm-style-iw {
+  max-width: 340px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  border-radius: 16px !important;
+}
+
+.gm-style-iw-c {
+  border-radius: 16px !important;
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.45), 0 8px 14px -6px rgba(0, 0, 0, 0.3) !important;
+  padding: 0 !important;
+  background: #ffffff !important;
+}
+
+.gm-style-iw-d {
+  overflow: hidden !important;
+  max-height: none !important;
+  padding: 0 !important;
+}
+
+.gm-style-iw-tc::after {
+  background: #ffffff !important;
+}
+
+/* Close button inside Google Maps InfoWindow - crisp, high-contrast, modern UI */
+.gm-ui-hover-effect {
+  top: 10px !important;
+  right: 10px !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #f1f5f9 !important; /* Soft stone/slate neutral background */
+  border: 1px solid #e2e8f0 !important;
+  opacity: 1 !important;
+  transition: all 0.18s ease !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.gm-ui-hover-effect:hover {
+  background: #1c1917 !important; /* Deep dark on hover */
+  border-color: #1c1917 !important;
+  transform: scale(1.05) !important;
+}
+
+/* Force the cross icon mask/glyph to be deep dark by default, and crisp white on hover */
+.gm-ui-hover-effect > span {
+  margin: 0 !important;
+  width: 14px !important;
+  height: 14px !important;
+  background-color: #44403c !important; /* Deep stone-700 - clearly visible */
+  transition: background-color 0.18s ease !important;
+}
+
+.gm-ui-hover-effect:hover > span {
+  background-color: #ffffff !important; /* Crisp white icon when hovering */
+}
+
+
+

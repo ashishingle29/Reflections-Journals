@@ -68,12 +68,28 @@ gcloud secrets add-iam-policy-binding GEMINI_API_KEY \
 
 ## 3. Database Security Configuration
 
-Deploy user-isolated Firestore Security Rules so each authenticated user can strictly access only their own entries:
+Deploy user-isolated and RBAC-governed Firestore Security Rules so each authenticated user can strictly access only their own entries, while administrative telemetry is restricted to verified administrators:
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper to determine if the requesting user has the admin role
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'ashishingle589@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    // User profile document: owners can read/write; admins can read
+    match /users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // User-owned private reflections: strictly owner-isolated (Zero Data Exposure)
     match /users/{userId}/entries/{entryId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
@@ -82,6 +98,11 @@ service cloud.firestore {
     }
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Platform Telemetry: Restricted exclusively to verified administrators
+    match /system_telemetry/{docId} {
+      allow read, write: if isAdmin();
     }
   }
 }
@@ -105,6 +126,7 @@ firebase deploy --only firestore:rules
    ```env
    GEMINI_API_KEY=your_gemini_api_key_here
    NODE_ENV=development
+   VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key_or_demo_key
    ```
 
 3. Start unified dev server (Express + Vite on port 3000):

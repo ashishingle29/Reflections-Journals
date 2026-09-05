@@ -227,9 +227,24 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server listening on http://0.0.0.0:${PORT}`);
+  });
+
+  process.on("SIGTERM", () => {
+    server.close(() => {
+      process.exit(0);
+    });
+  });
+
+  process.on("SIGINT", () => {
+    server.close(() => {
+      process.exit(0);
+    });
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error("Critical error starting server:", err);
+  process.exit(1);
+});

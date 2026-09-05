@@ -1,6 +1,6 @@
 {
   "name": "Reflections Journal",
   "description": "A private sanctuary for deep reflection. Capture inner dialogue, explore 3-angle brainstorming perspectives, and reflect with a thoughtful Gemini AI companion. Strictly secured with Cloud Firestore.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
